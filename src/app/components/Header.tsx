@@ -46,12 +46,19 @@ export function Header({ showAdminLink, onAdminClick }: HeaderProps) {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             {logo ? (
-              <img src={logo} alt="CMX Logo" className="w-8 h-8 object-contain" />
+              <img
+                src={logo}
+                alt="Code Morphicx Logo"
+                className="w-8 h-8 object-contain"
+              />
             ) : (
               <Award className="w-8 h-8 text-blue-600" />
             )}
-            <span className="text-xl font-semibold text-gray-900">Code MorphicX</span>
+            <span className="text-xl font-semibold text-gray-900">
+              Code Morphicx
+            </span>
           </div>
+
           {!logo && (
             <button
               onClick={handleUploadClick}
@@ -61,6 +68,7 @@ export function Header({ showAdminLink, onAdminClick }: HeaderProps) {
               Upload Logo
             </button>
           )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -69,6 +77,7 @@ export function Header({ showAdminLink, onAdminClick }: HeaderProps) {
             className="hidden"
           />
         </div>
+
         {showAdminLink && (
           <button
             onClick={onAdminClick}

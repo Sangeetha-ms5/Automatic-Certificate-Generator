@@ -1,47 +1,71 @@
 /**
  * Credential ID Generator
- * Generates auto-incrementing credential IDs in format: CMX-0001, CMX-0002, etc.
+ * Format: CMX-YYYY-001
  */
 
-const COUNTER_KEY = 'cmx_credential_counter';
-const ID_PREFIX = 'CMX-';
+const COUNTER_KEY_PREFIX = 'cmx_credential_counter_';
+const ID_PREFIX = 'CMX';
 
 /**
- * Get the next credential ID and increment the counter
+ * Get current year
+ */
+function getCurrentYear(): string {
+  return new Date().getFullYear().toString();
+}
+
+/**
+ * Get storage key based on year
+ */
+function getYearlyCounterKey(): string {
+  return `${COUNTER_KEY_PREFIX}${getCurrentYear()}`;
+}
+
+/**
+ * Generate Credential ID
  */
 export function generateCredentialId(): string {
-  // Get current counter from localStorage
-  const currentCounter = parseInt(localStorage.getItem(COUNTER_KEY) || '0', 10);
+
+  const year = getCurrentYear();
+  const counterKey = getYearlyCounterKey();
+
+  // Get current counter for this year
+  const currentCounter = parseInt(
+    localStorage.getItem(counterKey) || '0',
+    10
+  );
 
   // Increment counter
   const nextCounter = currentCounter + 1;
 
   // Save updated counter
-  localStorage.setItem(COUNTER_KEY, nextCounter.toString());
+  localStorage.setItem(counterKey, nextCounter.toString());
 
-  // Format ID with leading zeros (e.g., CMX-0001)
-  const paddedNumber = nextCounter.toString().padStart(4, '0');
+  // Format number (001, 002, 003...)
+  const paddedNumber = nextCounter.toString().padStart(3, '0');
 
-  return `${ID_PREFIX}${paddedNumber}`;
+  return `${ID_PREFIX}-${year}-${paddedNumber}`;
 }
 
 /**
- * Get current counter value without incrementing
+ * Get current counter (without increment)
  */
 export function getCurrentCounter(): number {
-  return parseInt(localStorage.getItem(COUNTER_KEY) || '0', 10);
+  const counterKey = getYearlyCounterKey();
+  return parseInt(localStorage.getItem(counterKey) || '0', 10);
 }
 
 /**
- * Reset counter (admin function)
+ * Reset counter for current year
  */
 export function resetCounter(): void {
-  localStorage.setItem(COUNTER_KEY, '0');
+  const counterKey = getYearlyCounterKey();
+  localStorage.setItem(counterKey, '0');
 }
 
 /**
- * Set counter to specific value (admin function)
+ * Set counter manually (Admin)
  */
 export function setCounter(value: number): void {
-  localStorage.setItem(COUNTER_KEY, Math.max(0, value).toString());
+  const counterKey = getYearlyCounterKey();
+  localStorage.setItem(counterKey, Math.max(0, value).toString());
 }

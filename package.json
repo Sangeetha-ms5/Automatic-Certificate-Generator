@@ -4,8 +4,10 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "dev": "vite",
     "build": "vite build",
-    "dev": "vite"
+    "preview": "vite preview",
+    "test": "vitest"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -43,14 +45,20 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "1.1.1",
+    "cors": "^2.8.6",
     "date-fns": "3.6.0",
+    "dotenv": "^17.4.2",
     "embla-carousel-react": "8.6.0",
+    "express": "^5.2.1",
+    "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
     "input-otp": "1.4.2",
     "jspdf": "^4.2.1",
     "lucide-react": "0.487.0",
+    "mongoose": "^9.6.2",
     "motion": "12.23.24",
     "next-themes": "0.4.6",
+    "nodemailer": "^8.0.7",
     "react-day-picker": "8.10.1",
     "react-dnd": "16.0.1",
     "react-dnd-html5-backend": "16.0.1",
@@ -62,16 +70,26 @@
     "react-router-dom": "^7.14.2",
     "react-slick": "0.31.0",
     "recharts": "2.15.2",
+    "resend": "^6.12.3",
     "sonner": "2.0.3",
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",
-    "vaul": "1.1.2"
+    "vaul": "1.1.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^25.6.2",
     "@vitejs/plugin-react": "4.7.0",
+    "@vitest/coverage-v8": "4.1.5",
+    "@vitest/ui": "^4.1.5",
+    "jsdom": "^29.1.1",
+    "nodemon": "^3.1.14",
     "tailwindcss": "4.1.12",
-    "vite": "6.3.5"
+    "vite": "6.3.5",
+    "vitest": "^4.1.5"
   },
   "peerDependencies": {
     "react": "18.3.1",
@@ -88,6 +106,24 @@
   "pnpm": {
     "overrides": {
       "vite": "6.3.5"
-    }
-  }
+    },
+    "onlyBuiltDependencies": [
+      "@tailwindcss/oxide",
+      "core-js",
+      "esbuild"
+    ]
+  },
+  "description": "This is a code bundle for Automatic Certificate Generator System (Copy). The original project is available at https://www.figma.com/design/pAnyffGfdUbnG9qXi8IeGI/Automatic-Certificate-Generator-System--Copy-.",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sangeetha-ms5/Automaticcertificategeneratorsystem.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Sangeetha-ms5/Automaticcertificategeneratorsystem/issues"
+  },
+  "homepage": "https://github.com/Sangeetha-ms5/Automaticcertificategeneratorsystem#readme"
 }

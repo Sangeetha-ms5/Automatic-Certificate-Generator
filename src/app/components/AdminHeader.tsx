@@ -50,7 +50,7 @@ export function AdminHeader({ title, onLogout }: AdminHeaderProps) {
             ) : (
               <Award className="w-8 h-8 text-blue-600" />
             )}
-            <span className="text-xl font-semibold text-gray-900">Code MorphicX</span>
+            <span className="text-xl font-semibold text-gray-900">Code Morphicx</span>
           </div>
           {!logo && (
             <button

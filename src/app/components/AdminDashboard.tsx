@@ -1,4 +1,5 @@
-import { Award, Calendar, Users, Mail } from "lucide-react";
+import { Award, Calendar, Users, Mail, Trash2, Undo2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
@@ -6,114 +7,219 @@ import { AdminHeader } from "./AdminHeader";
 export function AdminDashboard() {
   const navigate = useNavigate();
 
+  const [stats, setStats] = useState({
+    totalCertificates: 0,
+    activeEvents: 0,
+    participants: 0,
+    emailsSent: 0,
+  });
+
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [deletedItem, setDeletedItem] = useState<any | null>(null);
+
   const handleLogout = () => {
     localStorage.removeItem("adminAuth");
     navigate("/admin-login");
   };
 
-  const stats = [
-    {
-      title: "Total Certificates Generated",
-      value: "1,284",
-      icon: Award,
-      color: "blue",
-      trend: "+12% from last month",
-    },
-    {
-      title: "Active Events",
-      value: "24",
-      icon: Calendar,
-      color: "green",
-      trend: "8 events this week",
-    },
-    {
-      title: "Registered Participants",
-      value: "3,562",
-      icon: Users,
-      color: "purple",
-      trend: "+156 new this week",
-    },
-    {
-      title: "Emails Sent",
-      value: "1,128",
-      icon: Mail,
-      color: "orange",
-      trend: "98.5% delivery rate",
-    },
-  ];
+  /* ================= FETCH DASHBOARD ================= */
+  const fetchDashboardData = async () => {
+    try {
+      const [cert, events, users, emails, recent] = await Promise.all([
+        fetch("http://localhost:5000/api/stats/total-certificates").then(r => r.json()),
+        fetch("http://localhost:5000/api/stats/events").then(r => r.json()),
+        fetch("http://localhost:5000/api/stats/participants").then(r => r.json()),
+        fetch("http://localhost:5000/api/stats/emails").then(r => r.json()),
+        fetch("http://localhost:5000/api/stats/recent").then(r => r.json()),
+      ]);
 
-  const recentActivity = [
-    { name: "John Smith", event: "Web Development Workshop", date: "2026-04-23", type: "Completion" },
-    { name: "Sarah Johnson", event: "Leadership Training", date: "2026-04-23", type: "Achievement" },
-    { name: "Mike Chen", event: "Annual Conference", date: "2026-04-22", type: "Participation" },
-    { name: "Emily Davis", event: "Community Service", date: "2026-04-22", type: "Appreciation" },
-    { name: "Alex Martinez", event: "Tech Summit 2026", date: "2026-04-21", type: "Participation" },
-  ];
+      setStats({
+        totalCertificates: cert.totalCertificates || 0,
+        activeEvents: events.activeEvents || 0,
+        participants: users.totalParticipants || 0,
+        emailsSent: emails.emailsSent || 0,
+      });
+
+      setRecentActivity(recent.data || []);
+      setLoading(false);
+    } catch (error) {
+      console.error(error);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  /* ================= DELETE (SOFT DELETE) ================= */
+  const handleDelete = async (item: any) => {
+    try {
+      await fetch(
+        `http://localhost:5000/api/user-data/${item._id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      // remove instantly from UI
+      setRecentActivity((prev) =>
+        prev.filter((x) => x._id !== item._id)
+      );
+
+      // show undo bar
+      setDeletedItem(item);
+
+      // auto hide undo after 5 sec
+      setTimeout(() => {
+        setDeletedItem(null);
+      }, 5000);
+
+    } catch (error) {
+      console.error("Delete error:", error);
+    }
+  };
+
+  /* ================= UNDO DELETE ================= */
+  const handleUndo = async () => {
+    if (!deletedItem) return;
+
+    try {
+      await fetch(
+        `http://localhost:5000/api/user-data/restore/${deletedItem._id}`,
+        {
+          method: "PATCH",
+        }
+      );
+
+      setRecentActivity((prev) => [
+        deletedItem,
+        ...prev,
+      ]);
+
+      setDeletedItem(null);
+
+    } catch (error) {
+      console.error("Undo error:", error);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
+
       <AdminSidebar />
 
       <div className="flex-1">
         <AdminHeader title="Dashboard" onLogout={handleLogout} />
 
         <main className="p-8">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon;
-              const colorClasses: Record<string, string> = {
-                blue: "bg-blue-100 text-blue-600",
-                green: "bg-green-100 text-green-600",
-                purple: "bg-purple-100 text-purple-600",
-                orange: "bg-orange-100 text-orange-600",
-              };
 
-              return (
-                <div key={index} className="bg-white rounded-xl shadow-md p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`w-12 h-12 ${colorClasses[stat.color]} rounded-lg flex items-center justify-center`}>
-                      <Icon className="w-6 h-6" />
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
-                  <p className="text-xs text-gray-500">{stat.trend}</p>
-                </div>
-              );
-            })}
+          {/* ================= UNDO BAR ================= */}
+          {deletedItem && (
+            <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded flex justify-between items-center">
+              <p>Record deleted</p>
+
+              <button
+                onClick={handleUndo}
+                className="flex items-center gap-1 text-blue-600 font-medium"
+              >
+                <Undo2 size={16} />
+                Undo
+              </button>
+            </div>
+          )}
+
+          {/* ================= STATS ================= */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
+            <div className="bg-white p-6 rounded-xl shadow">
+              <Award className="text-blue-600" />
+              <p>Total Certificates</p>
+              <h2 className="text-2xl font-bold">
+                {stats.totalCertificates}
+              </h2>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow">
+              <Calendar className="text-green-600" />
+              <p>Active Events</p>
+              <h2 className="text-2xl font-bold">
+                {stats.activeEvents}
+              </h2>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow">
+              <Users className="text-purple-600" />
+              <p>Participants</p>
+              <h2 className="text-2xl font-bold">
+                {stats.participants}
+              </h2>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow">
+              <Mail className="text-orange-600" />
+              <p>Emails Sent</p>
+              <h2 className="text-2xl font-bold">
+                {stats.emailsSent}
+              </h2>
+            </div>
+
           </div>
 
+          {/* ================= RECENT ACTIVITY ================= */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Recent Activity</h2>
-            <div className="overflow-x-auto">
+
+            <h2 className="text-xl font-bold mb-6">
+              Recent Activity
+            </h2>
+
+            {loading ? (
+              <p>Loading...</p>
+            ) : recentActivity.length === 0 ? (
+              <p className="text-gray-500 text-center py-6">
+                No recent activity
+              </p>
+            ) : (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Participant</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Event</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Type</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Date</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Status</th>
+                  <tr className="border-b">
+                    <th>Participant</th>
+                    <th>Event</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
+
                 <tbody>
-                  {recentActivity.map((activity, index) => (
-                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-4 px-4 text-sm text-gray-900">{activity.name}</td>
-                      <td className="py-4 px-4 text-sm text-gray-600">{activity.event}</td>
-                      <td className="py-4 px-4 text-sm text-gray-600">{activity.type}</td>
-                      <td className="py-4 px-4 text-sm text-gray-600">{activity.date}</td>
-                      <td className="py-4 px-4">
-                        <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                          Sent
-                        </span>
+                  {recentActivity.map((item) => (
+                    <tr key={item._id} className="border-b">
+
+                      <td>{item.participantName}</td>
+                      <td>{item.eventName}</td>
+                      <td>{item.type}</td>
+                      <td>{item.date}</td>
+
+                      <td>
+                        <button
+                          onClick={() => handleDelete(item)}
+                          className="text-red-600 flex items-center gap-1"
+                        >
+                          <Trash2 size={16} />
+                          Delete
+                        </button>
                       </td>
+
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            )}
+
           </div>
+
         </main>
       </div>
     </div>

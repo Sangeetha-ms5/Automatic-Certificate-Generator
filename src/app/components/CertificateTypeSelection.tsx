@@ -127,11 +127,13 @@ export function CertificateTypeSelection() {
                     Upload Template
                   </button>
                   <input
-                    ref={(el) => (fileInputRefs.current[cert.id] = el)}
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg,.pdf"
-                    onChange={(e) => handleTemplateUpload(cert.id, e)}
-                    className="hidden"
+                   ref={(el) => {
+    fileInputRefs.current[cert.id] = el;
+  }}
+  type="file"
+  accept="image/png,image/jpeg,image/jpg,.pdf"
+  onChange={(e) => handleTemplateUpload(cert.id, e)}
+  className="hidden"
                   />
                   {templates[cert.id] && (
                     <button

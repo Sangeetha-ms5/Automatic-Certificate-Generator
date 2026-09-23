@@ -1,188 +1,208 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { Plus, Edit, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
-import { AdminSidebar } from "./AdminSidebar";
-import { AdminHeader } from "./AdminHeader";
+import { useEffect, useState } from "react";
+
+/* =========================
+   EVENT TYPE
+========================= */
+interface Event {
+  _id: string;
+  name: string;
+  certificateType: string;
+  date: string;
+  participants: number;
+  status: string;
+}
 
 export function EventManagement() {
-  const navigate = useNavigate();
-  const [events, setEvents] = useState([
-    { id: 1, name: "Web Development Workshop", type: "Completion", participants: 45, status: "active", date: "2026-05-15" },
-    { id: 2, name: "Leadership Training", type: "Achievement", participants: 32, status: "active", date: "2026-06-01" },
-    { id: 3, name: "Annual Conference", type: "Participation", participants: 120, status: "active", date: "2026-07-10" },
-    { id: 4, name: "Community Service Day", type: "Appreciation", participants: 68, status: "inactive", date: "2026-04-20" },
-  ]);
-
+  const [events, setEvents] = useState<Event[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({
-    name: "",
-    type: "participation",
-    date: "",
-  });
 
-  const handleCreateEvent = () => {
-    if (newEvent.name && newEvent.date) {
-      setEvents([...events, {
-        id: events.length + 1,
-        name: newEvent.name,
-        type: newEvent.type,
-        participants: 0,
-        status: "active",
-        date: newEvent.date,
-      }]);
-      setNewEvent({ name: "", type: "participation", date: "" });
-      setShowModal(false);
+  const [name, setName] = useState("");
+  const [certificateType, setCertificateType] = useState("Participation");
+  const [date, setDate] = useState("");
+  const [participants, setParticipants] = useState(0);
+
+  /* =========================
+     FETCH EVENTS
+  ========================= */
+  const fetchEvents = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/events");
+      const data = await res.json();
+      setEvents(data.events || []);
+    } catch (err) {
+      console.log("Fetch error:", err);
+      setEvents([]);
     }
   };
 
-  const toggleStatus = (id: number) => {
-    setEvents(events.map(event =>
-      event.id === id
-        ? { ...event, status: event.status === "active" ? "inactive" : "active" }
-        : event
-    ));
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  /* =========================
+     CREATE EVENT
+  ========================= */
+  const handleCreate = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          certificateType,
+          date,
+          participants,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create event");
+
+      await res.json();
+
+      setName("");
+      setCertificateType("Participation");
+      setDate("");
+      setParticipants(0);
+      setShowModal(false);
+
+      fetchEvents();
+    } catch (err) {
+      console.log("Create error:", err);
+    }
+  };
+
+  /* =========================
+     DELETE EVENT (NEW)
+  ========================= */
+  const handleDelete = async (id: string) => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this event?"
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/events/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!res.ok) throw new Error("Delete failed");
+
+      setEvents((prev) => prev.filter((e) => e._id !== id));
+    } catch (err) {
+      console.log("Delete error:", err);
+    }
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <AdminSidebar />
+    <div className="p-6">
 
-      <div className="flex-1">
-        <AdminHeader
-          title="Event Management"
-          onLogout={() => {
-            localStorage.removeItem("adminAuth");
-            navigate("/admin-login");
-          }}
-        />
+      <div className="flex justify-between mb-4">
+        <h1 className="text-2xl font-bold">Event Management</h1>
 
-        <main className="p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">All Events</h2>
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Create Event
+        </button>
+      </div>
+
+      {/* EVENTS */}
+      {events.length === 0 ? (
+        <p>No events found</p>
+      ) : (
+        events.map((event) => (
+          <div
+            key={event._id}
+            className="border p-4 mb-2 rounded flex justify-between items-center"
+          >
+            <div>
+              <h3 className="font-bold">{event.name}</h3>
+              <p>Type: {event.certificateType}</p>
+              <p>Date: {event.date}</p>
+              <p>Participants: {event.participants}</p>
+              <p>Status: {event.status}</p>
+            </div>
+
+            {/* DELETE BUTTON */}
             <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => handleDelete(event._id)}
+              className="bg-red-600 text-white px-3 py-1 rounded"
             >
-              <Plus className="w-4 h-4" />
-              Create Event
+              Delete
             </button>
           </div>
+        ))
+      )}
 
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Event Name</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Certificate Type</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Participants</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Date</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Status</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((event) => (
-                  <tr key={event.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-6 text-sm font-medium text-gray-900">{event.name}</td>
-                    <td className="py-4 px-6 text-sm text-gray-600">{event.type}</td>
-                    <td className="py-4 px-6 text-sm text-gray-600">{event.participants}</td>
-                    <td className="py-4 px-6 text-sm text-gray-600">{event.date}</td>
-                    <td className="py-4 px-6">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        event.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}>
-                        {event.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => toggleStatus(event.id)}
-                          className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                        >
-                          {event.status === "active" ? (
-                            <ToggleRight className="w-5 h-5" />
-                          ) : (
-                            <ToggleLeft className="w-5 h-5" />
-                          )}
-                        </button>
-                        <button className="p-2 text-gray-600 hover:text-blue-600 transition-colors">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button className="p-2 text-gray-600 hover:text-red-600 transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </main>
+      {/* MODAL */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex justify-center items-center">
+          <div className="bg-white p-6 w-96 rounded-lg">
 
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Create New Event</h3>
+            <h2 className="text-xl font-bold mb-4">Create New Event</h2>
 
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Event Name</label>
-                  <input
-                    type="text"
-                    value={newEvent.name}
-                    onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="Enter event name"
-                  />
-                </div>
+            <input
+              type="text"
+              placeholder="Event Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="border p-2 w-full mb-3"
+            />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Certificate Type</label>
-                  <select
-                    value={newEvent.type}
-                    onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="participation">Participation</option>
-                    <option value="achievement">Achievement</option>
-                    <option value="appreciation">Appreciation</option>
-                    <option value="completion">Completion</option>
-                  </select>
-                </div>
+            <select
+              value={certificateType}
+              onChange={(e) => setCertificateType(e.target.value)}
+              className="border p-2 w-full mb-3"
+            >
+              <option value="Participation">Participation</option>
+              <option value="Achievement">Achievement</option>
+              <option value="Appreciation">Appreciation</option>
+              <option value="Completion">Completion</option>
+            </select>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Event Date</label>
-                  <input
-                    type="date"
-                    value={newEvent.date}
-                    onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-              </div>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="border p-2 w-full mb-3"
+            />
 
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateEvent}
-                  className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Create
-                </button>
-              </div>
+            <input
+              type="number"
+              placeholder="Participants"
+              value={participants}
+              onChange={(e) =>
+                setParticipants(Number(e.target.value))
+              }
+              className="border p-2 w-full mb-3"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border rounded"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleCreate}
+                className="bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                Create
+              </button>
             </div>
+
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,159 +1,223 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router";
-import { Award, Download, Mail, Edit } from "lucide-react";
+import { Download, Mail, Edit } from "lucide-react";
 import { Header } from "./Header";
 import { CertificateRenderer } from "./CertificateRenderer";
-import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 export function CertificatePreview() {
   const navigate = useNavigate();
+
   const [data, setData] = useState<any>(null);
-  const [templateImage, setTemplateImage] = useState<string | null>(null);
-  const certificateRef = useRef<HTMLDivElement>(null);
+  const [templateImage, setTemplateImage] =
+    useState<string | null>(null);
+
+  const [sending, setSending] = useState(false);
+
+  // ✅ certificate ready state
+  const [certificateReady, setCertificateReady] =
+    useState(false);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(
+    null
+  );
 
   useEffect(() => {
-    const stored = localStorage.getItem("certificateData");
-    if (stored) {
-      const parsedData = JSON.parse(stored);
-      setData(parsedData);
+    const stored =
+      localStorage.getItem("certificateData");
 
-      const template = localStorage.getItem(`template_${parsedData.type}`);
-      setTemplateImage(template);
-    } else {
+    if (!stored) {
       navigate("/select-certificate");
+      return;
     }
+
+    const parsed = JSON.parse(stored);
+
+    console.log(
+      "🔥 CURRENT CERTIFICATE DATA:",
+      parsed
+    );
+
+    setData(parsed);
+
+    const template = localStorage.getItem(
+      `template_${parsed.type}`
+    );
+
+    setTemplateImage(template);
   }, [navigate]);
 
-  const handleDownloadPDF = async () => {
-    if (!certificateRef.current) return;
+  // ✅ wait until canvas is fully rendered
+  useEffect(() => {
+    if (canvasRef.current) {
+      const timer = setTimeout(() => {
+        setCertificateReady(true);
+      }, 1500);
 
-    try {
-      const canvas = await html2canvas(certificateRef.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        logging: false,
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "landscape",
-        unit: "px",
-        format: [canvas.width, canvas.height],
-      });
-
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-      pdf.save(`Certificate_${data.certificateId}.pdf`);
-
-      navigate("/success");
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("Failed to generate PDF. Please try again.");
+      return () => clearTimeout(timer);
     }
+  }, [data, templateImage]);
+
+  /* =========================
+      DOWNLOAD PDF
+  ========================== */
+  const handleDownloadPDF = () => {
+    const canvas = canvasRef.current;
+
+    if (!canvas || !certificateReady) {
+      alert("Certificate is loading...");
+      return;
+    }
+
+    const imgData = canvas.toDataURL("image/png");
+
+    const pdf = new jsPDF(
+      "landscape",
+      "px",
+      [canvas.width, canvas.height]
+    );
+
+    pdf.addImage(
+      imgData,
+      "PNG",
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    pdf.save(
+      `Certificate_${data?.certificateId}.pdf`
+    );
   };
 
-  const handleSendEmail = () => {
-    alert(`Certificate sent to ${data?.email}`);
-    navigate("/success");
+  /* =========================
+      SEND EMAIL
+  ========================== */
+  const handleSendEmail = async () => {
+    try {
+      const canvas = canvasRef.current;
+
+      if (!canvas || !certificateReady) {
+        alert("Certificate is loading...");
+        return;
+      }
+
+      setSending(true);
+
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF(
+        "landscape",
+        "px",
+        [canvas.width, canvas.height]
+      );
+
+      pdf.addImage(
+        imgData,
+        "PNG",
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+      const pdfBase64 =
+        pdf.output("datauristring");
+
+      const res = await fetch(
+        "http://localhost:5000/api/send-email",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            name: data.participantName,
+            email: data.email,
+            certificateId:
+              data.certificateId,
+            pdf: pdfBase64,
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      if (result.success) {
+        alert(
+          "✅ Certificate Email Sent Successfully"
+        );
+
+        navigate("/success");
+      } else {
+        alert("❌ Email sending failed");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Email sending error");
+    } finally {
+      setSending(false);
+    }
   };
 
   if (!data) return null;
-
-  const certificateTitles: Record<string, string> = {
-    participation: "Certificate of Participation",
-    achievement: "Certificate of Achievement",
-    appreciation: "Certificate of Appreciation",
-    completion: "Certificate of Completion",
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
 
       <main className="max-w-5xl mx-auto px-6 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Certificate Preview</h1>
-          <p className="text-lg text-gray-600">Review your certificate before downloading or sending</p>
+        <h1 className="text-4xl font-bold mb-6">
+          Certificate Preview
+        </h1>
+
+        {/* CERTIFICATE */}
+        <div className="bg-white p-6 rounded-xl shadow-lg mb-8">
+          <CertificateRenderer
+            ref={canvasRef}
+            data={data}
+            templateImage={templateImage}
+          />
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-          <div id="certificate" ref={certificateRef} className="relative w-full">
-            {templateImage ? (
-              <CertificateRenderer data={data} templateImage={templateImage} />
-            ) : (
-              <div className="border-8 border-blue-600 p-8 md:p-16 bg-gradient-to-br from-blue-50 to-white relative min-h-[600px] rounded-lg">
-                <div className="absolute top-8 left-8 right-8 bottom-8 border-2 border-blue-300"></div>
-
-                <div className="text-center relative z-10">
-                  <div className="mb-8">
-                    <Award className="w-16 h-16 md:w-24 md:h-24 text-blue-600 mx-auto mb-4" />
-                    <div className="text-xs md:text-sm text-blue-600 tracking-widest uppercase mb-2">
-                      Official Certificate
-                    </div>
-                    <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-8">
-                      {certificateTitles[data.type]}
-                    </h2>
-                  </div>
-
-                  <div className="mb-8">
-                    <p className="text-lg md:text-xl text-gray-600 mb-4">This is to certify that</p>
-                    <p className="text-2xl md:text-4xl font-bold text-blue-600 mb-4">
-                      {data.participantName}
-                    </p>
-                    <p className="text-lg md:text-xl text-gray-600 mb-4">
-                      has successfully participated in
-                    </p>
-                    <p className="text-xl md:text-2xl font-semibold text-gray-900 mb-8">
-                      {data.eventName}
-                    </p>
-                  </div>
-
-                  <div className="flex justify-between items-end mt-12 pt-8 border-t-2 border-gray-200">
-                    <div className="text-left">
-                      <p className="text-xs md:text-sm text-gray-500">Date</p>
-                      <p className="text-sm md:text-base font-semibold text-gray-900">{data.date}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs md:text-sm text-gray-500">Organization</p>
-                      <p className="text-sm md:text-base font-semibold text-gray-900">
-                        {data.organization}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs md:text-sm text-gray-500">Certificate ID</p>
-                      <p className="text-sm md:text-base font-semibold text-gray-900">
-                        {data.certificateId}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
+        {/* BUTTONS */}
         <div className="grid md:grid-cols-3 gap-4">
+
+          {/* DOWNLOAD */}
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center justify-center gap-2 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            disabled={!certificateReady}
+            className="bg-blue-600 text-white py-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <Download className="w-5 h-5" />
+            <Download />
             Download PDF
           </button>
+
+          {/* EMAIL */}
           <button
             onClick={handleSendEmail}
-            className="flex items-center justify-center gap-2 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            disabled={sending || !certificateReady}
+            className="bg-green-600 text-white py-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <Mail className="w-5 h-5" />
-            Send to Email
+            <Mail />
+            {sending
+              ? "Sending..."
+              : "Send Email"}
           </button>
+
+          {/* EDIT */}
           <button
-            onClick={() => navigate(`/form/${data.type}`)}
-            className="flex items-center justify-center gap-2 py-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+            onClick={() =>
+              navigate(`/form/${data.type}`)
+            }
+            className="border py-4 rounded-lg flex items-center justify-center gap-2"
           >
-            <Edit className="w-5 h-5" />
-            Edit Details
+            <Edit />
+            Edit
           </button>
+
         </div>
       </main>
     </div>

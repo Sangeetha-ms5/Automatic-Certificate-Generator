@@ -1,33 +1,88 @@
 import { useNavigate } from "react-router";
-import { Mail, CheckCircle, XCircle, Clock, Send } from "lucide-react";
+import { Send } from "lucide-react";
+import { useState } from "react";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
 
 export function EmailAutomation() {
   const navigate = useNavigate();
-  const emailStats = [
-    { label: "Total Sent", value: "1,128", icon: Send, color: "blue" },
-    { label: "Delivered", value: "1,112", icon: CheckCircle, color: "green" },
-    { label: "Failed", value: "8", icon: XCircle, color: "red" },
-    { label: "Pending", value: "8", icon: Clock, color: "yellow" },
-  ];
 
-  const recentEmails = [
-    { id: 1, recipient: "john@example.com", subject: "Your Certificate is Ready", certId: "CERT-2026-001", status: "delivered", time: "2 mins ago" },
-    { id: 2, recipient: "sarah@example.com", subject: "Your Certificate is Ready", certId: "CERT-2026-002", status: "delivered", time: "5 mins ago" },
-    { id: 3, recipient: "mike@example.com", subject: "Your Certificate is Ready", certId: "CERT-2026-003", status: "delivered", time: "12 mins ago" },
-    { id: 4, recipient: "emily@example.com", subject: "Your Certificate is Ready", certId: "CERT-2026-004", status: "pending", time: "15 mins ago" },
-    { id: 5, recipient: "alex@example.com", subject: "Your Certificate is Ready", certId: "CERT-2026-005", status: "delivered", time: "23 mins ago" },
-    { id: 6, recipient: "lisa@example.com", subject: "Your Certificate is Ready", certId: "CERT-2026-006", status: "delivered", time: "45 mins ago" },
-    { id: 7, recipient: "invalid@email", subject: "Your Certificate is Ready", certId: "CERT-2026-007", status: "failed", time: "1 hour ago" },
-    { id: 8, recipient: "maria@example.com", subject: "Your Certificate is Ready", certId: "CERT-2026-008", status: "delivered", time: "2 hours ago" },
-  ];
+  /* =========================
+     STATES
+  ========================= */
+  const [recentEmails, setRecentEmails] = useState<any[]>([]);
+  const [recipientEmail, setRecipientEmail] = useState("");
 
-  const colorClasses: Record<string, { bg: string; text: string }> = {
-    blue: { bg: "bg-blue-100", text: "text-blue-600" },
-    green: { bg: "bg-green-100", text: "text-green-600" },
-    red: { bg: "bg-red-100", text: "text-red-600" },
-    yellow: { bg: "bg-yellow-100", text: "text-yellow-600" },
+  const [stats, setStats] = useState({
+    sent: 0,
+    delivered: 0,
+    failed: 0,
+    pending: 0,
+  });
+
+  const emailConfig = {
+    smtp: "smtp.gmail.com",
+    from: "admin@college.com",
+    limit: "500/day",
+    deliveryRate: "98%",
+  };
+
+  /* =========================
+     SEND EMAIL
+  ========================= */
+  const handleSendEmail = () => {
+    if (!recipientEmail) return;
+
+    const id = Date.now();
+
+    const newEmail = {
+      id,
+      recipient: recipientEmail,
+      subject: "Certificate Issued",
+      certId: `CERT${Math.floor(Math.random() * 1000)}`,
+      status: "Pending",
+      time: "Sending...",
+    };
+
+    /* Add Email */
+    setRecentEmails((prev) => [newEmail, ...prev]);
+
+    /* Update Stats */
+    setStats((prev) => ({
+      ...prev,
+      sent: prev.sent + 1,
+      pending: prev.pending + 1,
+    }));
+
+    setRecipientEmail("");
+
+    /* =========================
+       SIMULATE DELIVERY RESULT
+    ========================= */
+    setTimeout(() => {
+      const success = Math.random() > 0.2; // 80% success
+
+      setRecentEmails((prev) =>
+        prev.map((mail) =>
+          mail.id === id
+            ? {
+                ...mail,
+                status: success ? "Delivered" : "Failed",
+                time: "Just now",
+              }
+            : mail
+        )
+      );
+
+      setStats((prev) => ({
+        ...prev,
+        pending: prev.pending - 1,
+        delivered: success
+          ? prev.delivered + 1
+          : prev.delivered,
+        failed: !success ? prev.failed + 1 : prev.failed,
+      }));
+    }, 2000);
   };
 
   return (
@@ -44,103 +99,128 @@ export function EmailAutomation() {
         />
 
         <main className="p-8">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {emailStats.map((stat, index) => {
-              const Icon = stat.icon;
-              const colors = colorClasses[stat.color];
 
-              return (
-                <div key={index} className="bg-white rounded-xl shadow-md p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`w-12 h-12 ${colors.bg} rounded-lg flex items-center justify-center`}>
-                      <Icon className={`w-6 h-6 ${colors.text}`} />
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-              );
-            })}
+          {/* ================= STATS ================= */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
+            <StatCard title="Emails Sent" value={stats.sent} />
+            <StatCard title="Delivered" value={stats.delivered} />
+            <StatCard title="Failed" value={stats.failed} />
+            <StatCard title="Pending" value={stats.pending} />
+
           </div>
 
+          {/* ================= SEND EMAIL ================= */}
           <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Email Configuration</h2>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                Edit Settings
+            <h2 className="text-xl font-semibold mb-4">
+              Send Certificate Email
+            </h2>
+
+            <div className="flex gap-4">
+              <input
+                type="email"
+                placeholder="Enter recipient email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                className="border p-2 flex-1 rounded"
+              />
+
+              <button
+                onClick={handleSendEmail}
+                className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+              >
+                <Send size={18} /> Send Email
               </button>
             </div>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 mb-1">SMTP Server</p>
-                <p className="font-medium text-gray-900">smtp.example.com</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 mb-1">From Address</p>
-                <p className="font-medium text-gray-900">certificates@certifypro.com</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 mb-1">Daily Limit</p>
-                <p className="font-medium text-gray-900">1,000 emails</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 mb-1">Delivery Rate</p>
-                <p className="font-medium text-green-600">98.5%</p>
-              </div>
+          </div>
+
+          {/* ================= CONFIG ================= */}
+          <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">
+              Email Configuration
+            </h2>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <ConfigBox label="SMTP Server" value={emailConfig.smtp} />
+              <ConfigBox label="From Address" value={emailConfig.from} />
+              <ConfigBox label="Daily Limit" value={emailConfig.limit} />
+              <ConfigBox label="Delivery Rate" value={emailConfig.deliveryRate} />
             </div>
           </div>
 
+          {/* ================= RECENT EMAILS ================= */}
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Recent Email Activity</h2>
+            <div className="p-6 border-b">
+              <h2 className="text-xl font-semibold">
+                Recent Email Activity
+              </h2>
             </div>
 
-            <div className="overflow-x-auto">
+            {recentEmails.length === 0 ? (
+              <p className="p-6">No email activity available</p>
+            ) : (
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Recipient</th>
-                    <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Subject</th>
-                    <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Certificate ID</th>
-                    <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Status</th>
-                    <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Time</th>
+                    <th className="py-4 px-6 text-left">Recipient</th>
+                    <th className="py-4 px-6 text-left">Subject</th>
+                    <th className="py-4 px-6 text-left">Certificate ID</th>
+                    <th className="py-4 px-6 text-left">Status</th>
+                    <th className="py-4 px-6 text-left">Time</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {recentEmails.map((email) => (
-                    <tr key={email.id} className="border-t border-gray-100 hover:bg-gray-50">
-                      <td className="py-4 px-6 text-sm text-gray-900">{email.recipient}</td>
-                      <td className="py-4 px-6 text-sm text-gray-600">{email.subject}</td>
-                      <td className="py-4 px-6 text-sm font-medium text-blue-600">{email.certId}</td>
-                      <td className="py-4 px-6">
-                        {email.status === "delivered" && (
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                            <span className="text-sm text-green-600">Delivered</span>
-                          </div>
-                        )}
-                        {email.status === "pending" && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-yellow-600" />
-                            <span className="text-sm text-yellow-600">Pending</span>
-                          </div>
-                        )}
-                        {email.status === "failed" && (
-                          <div className="flex items-center gap-2">
-                            <XCircle className="w-4 h-4 text-red-600" />
-                            <span className="text-sm text-red-600">Failed</span>
-                          </div>
-                        )}
+                    <tr key={email.id} className="border-t">
+                      <td className="py-4 px-6">{email.recipient}</td>
+                      <td className="py-4 px-6">{email.subject}</td>
+                      <td className="py-4 px-6 text-blue-600">
+                        {email.certId}
                       </td>
-                      <td className="py-4 px-6 text-sm text-gray-500">{email.time}</td>
+                      <td
+                        className={`py-4 px-6 font-medium ${
+                          email.status === "Delivered"
+                            ? "text-green-600"
+                            : email.status === "Failed"
+                            ? "text-red-600"
+                            : "text-yellow-600"
+                        }`}
+                      >
+                        {email.status}
+                      </td>
+                      <td className="py-4 px-6 text-gray-500">
+                        {email.time}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            )}
           </div>
+
         </main>
       </div>
+    </div>
+  );
+}
+
+/* ================= COMPONENTS ================= */
+
+function StatCard({ title, value }: any) {
+  return (
+    <div className="bg-white rounded-xl shadow-md p-6">
+      <p className="text-sm text-gray-600">{title}</p>
+      <p className="text-3xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function ConfigBox({ label, value }: any) {
+  return (
+    <div className="p-4 bg-gray-50 rounded">
+      <p className="text-gray-600">{label}</p>
+      <p className="font-medium">{value}</p>
     </div>
   );
 }
